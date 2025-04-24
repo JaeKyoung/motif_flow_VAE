@@ -1,0 +1,39 @@
+vae_model:
+  latent_dim: 8 # 4 or 8
+  hidden_dim: 128
+  encoder:
+    type: Transformer # Transformer, MPNN
+    Transformer:
+      hidden_dim: ${vae_model.hidden_dim}
+      latent_dim: ${vae_model.latent_dim}
+      c_pos_emb: 128
+      c_chain_emb: 128
+      max_n_res: 2056
+      max_n_chain: 6
+      dgram_bins: 22
+      relpos_bins: 32
+      num_layers: 2
+    MPNN:
+      latent_dim: ${vae_model.latent_dim}
+      node_features: 128
+      edge_features: 128
+      hidden_dim: ${vae_model.hidden_dim}
+      num_layers: 6 # total layer
+      K_neighbors: 48
+      augment_eps: 0.2
+      dropout: 0.1
+  decoder:
+    latent_dim: ${vae_model.latent_dim}
+    hidden_dim: ${vae_model.hidden_dim}
+
+latent_diffusion:
+  num_timesteps: 1000
+  latent_dim: ${vae_model.latent_dim}
+  hidden_size: 384
+  depth: 24
+  num_heads: 16
+  mlp_ratio: 4.0
+  dropout: 0.1
+  residual_dropout: 0.1
+  learn_sigma: false
+  use_structure_loss: false # if false, only train latent diffusion model, otherwise End-to-End training

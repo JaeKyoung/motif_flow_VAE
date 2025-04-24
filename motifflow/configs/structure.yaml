@@ -1,0 +1,127 @@
+interpolant:
+  t_sampling: uniform # uniform, beta, mixture, reverse_mixture, logit_normal
+  min_t: 1e-2
+  twisting:
+    use: False
+  trans:
+    batch_ot: False
+    corrupt: True
+    train_schedule: linear # linear
+    sample_schedule: linear # linear of vpsde
+    vpsde_bmin: 0.1
+    vpsde_bmax: 20.0
+  rots:
+    corrupt: True
+    train_schedule: linear
+    sample_schedule: exp
+    exp_rate: 10
+  sampling:
+    num_timesteps: 100 # 100, 500
+    use_spatial_motif_aligned_prior: False
+  self_condition: ${structure_model.edge_features.self_condition}
+
+
+structure_model:
+  node_embed_size: 256
+  edge_embed_size: 128
+  
+  node_features:
+    c_s: ${structure_model.node_embed_size}
+    c_pos_emb: 128
+    n_timestep: 2000
+    c_timestep_emb: 128
+    c_chain_emb: 64
+    max_n_res: 2056
+    max_n_chain: 6
+    seq_dropout: 0.25 # 0.25
+    c_latent_emb: ${vae_model.latent_dim}
+    use_z_all: True
+  
+  edge_features:
+    type: aggregation # or concatenation
+    use_contact_map: true
+    contact_gating: False
+    add_motif_template: false
+    single_bias_transition_n: 2 #? 
+    c_s: ${structure_model.node_embed_size}
+    c_p: ${structure_model.edge_embed_size}
+    relpos_k: 64
+    feat_dim: 64
+    template_dist_min: 2
+    template_dist_step: 0.5
+    template_dist_n_bin: 22
+    self_condition: True
+
+  auxiliary_heads:
+    enable: False
+    distogram_6d:
+      dist:
+        c_p : ${structure_model.edge_embed_size}
+        no_bins : 37
+      theta: 
+        c_p : ${structure_model.edge_embed_size}
+        no_bins : 37
+      omega:
+        c_p : ${structure_model.edge_embed_size}
+        no_bins : 37
+      phi:
+        c_p : ${structure_model.edge_embed_size}
+        no_bins : 19
+  
+  pair_transform_net:
+    enable: false
+    c_p: ${structure_model.edge_embed_size}
+    n_pair_transform_layer: 5
+    include_mul_update: True
+    include_tri_att: False
+    c_hidden_mul: 128
+    c_hidden_tri_att: 32
+    n_head_tri: 4
+    tri_dropout: 0.25
+    pair_transition_n: 4
+  
+  use_contact_gating: False
+  contact_gating_trainable: False
+  use_contact_score_modulation: False
+  contact_score_modulation_scale: 1.0
+  gating_type: no_gating # 1-t or t or no_gating(1)
+  ipa:
+    c_s: ${structure_model.node_embed_size}
+    c_z: ${structure_model.edge_embed_size}
+    c_hidden: 256
+    dropout: 0.0
+    c_skip_embedding:
+      enable: true
+      c_skip: 64
+    no_heads: 8
+    no_qk_points: 8
+    no_v_points: 12
+    use_contact_gating: ${structure_model.use_contact_gating}
+    contact_gating_trainable: ${structure_model.contact_gating_trainable}
+    use_contact_score_modulation: ${structure_model.use_contact_score_modulation}
+    contact_scale: ${structure_model.contact_score_modulation_scale}
+    gating_type: ${structure_model.gating_type}
+    seq_tfmr_attention: pytorch # or flash_attention
+    seq_tfmr_num_heads: 4
+    transformer_dropout: 0.0 # 0.2 in multiflow
+    seq_tfmr_num_layers: 2 # 4 in 0.1.1, multiflow / 2 in 0.1.2
+    num_blocks: 4 # 8 in 0.1.1, multiflow / 4 in 0.1.2
+    local_triangle_attention_new:
+      enable: false # true for local edge triangle attention for better performance / false for simple transition layer
+      use_contact_gating: ${structure_model.use_contact_gating}
+      contact_gating_trainable: ${structure_model.contact_gating_trainable}
+      use_contact_score_modulation: False # ${structure_model.use_contact_score_modulation} # 미구현
+      contact_scale: ${structure_model.contact_score_modulation_scale}
+      gating_type: ${structure_model.gating_type}
+      c_s: ${structure_model.node_embed_size}
+      c_z: ${structure_model.edge_embed_size}
+      c_rbf: 64
+      c_gate_s: 16
+      c_hidden: 128
+      c_hidden_mul: 128
+      no_heads: 4
+      transition_n: 2
+      k_neighbour: 32
+      k_linear: 0 #16
+      inf: 1e9
+      pair_dropout: 0.25

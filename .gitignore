@@ -1,0 +1,11 @@
+memo.txt
+notebook
+metadata
+outputs
+run
+se3_flow_vae.egg-info
+wandb
+ckpt
+.cache
+.cursorignore
+

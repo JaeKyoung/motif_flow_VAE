@@ -1,0 +1,55 @@
+# Configuration for inference on SE(3) diffusion experiments.
+defaults:
+  - base
+  - _self_
+
+experiment:
+  vae_checkpoint: null
+
+inference:
+
+  predict_dir: ./../inference_outputs/motif_flow_VAE/v0.1.2/MPNN_4_0.01_4/ # ./inference_outputs/v0.1.2/scope/v0.1.2_scope_last_single/
+  inference_subdir: run_${now:%Y-%m-%d}_${now:%H-%M-%S}
+
+  # Use this to write with date-time stamp.
+  name: run_${now:%Y-%m-%d}_${now:%H-%M}
+  seed: 123
+  task: test_set # Unconditioanl, scaffolding, test_set (from multilow)
+  output_dir: ${inference.predict_dir}
+
+  # Choose checkpoint path
+  # ckpt_path: ./ckpt/fm_mms_vae/joint_pdb_v0.1.2_MPNN_4_0.01_ze_8/last.ckpt
+  ckpt_path: ./ckpt/fm_mms_vae/joint_pdb_v0.1.2_pairformer_4_0.01_ze_8/last_test.ckpt
+
+  use_gpu: True
+  num_gpus: 1
+  test_self_consistency: True
+  write_sample_trajectories: False
+
+  interpolant:
+    min_t: 1e-2
+    rots:
+      corrupt: True
+      sample_schedule: exp
+      exp_rate: 10
+    trans:
+      corrupt: True
+      sample_schedule: linear
+    sampling:
+      num_timesteps: 100
+      use_spatial_motif_aligned_prior: false
+    self_condition: True
+  
+  pmpnn_dir: ./ProteinMPNN
+  folding:
+    seq_per_sample: 8
+    folding_model: esmf # esmf or af2
+    own_device: False
+    pmpnn_path: ./ProteinMPNN/
+    pt_hub_dir: ./../.cache/torch/
+    colabfold_path: path/to/colabfold-conda/bin/colabfold_batch # for AF2
+    self_consistency_metric : scRMSD # scRMSD or scTM
+    use_pae: true
+    calculate_novelty: false
+  
+  samples:

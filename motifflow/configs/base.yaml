@@ -1,0 +1,83 @@
+defaults:
+  - _self_
+  - datasets
+  - structure
+  - latent
+  - folding
+
+data:
+  task: inpainting # inpainting, prediction(?)
+  dataset: pdb # pdb, scope, AFDB / multimer, mmcif
+  loader:
+    num_workers: 8
+    prefetch_factor: 10
+  sampler:
+    # Setting for 48GB GPUs
+    max_batch_size: 1  # 80 # if using crop_non_chain_residues, max_batch_size should be 1 + in mmcif dataset...
+    max_num_res_squared: 400000 # 400000
+
+experiment:
+  objective: VAE # VAE, joint
+  start_training_VAE_epoch: 10
+  debug: false
+  seed: 123
+  num_devices: 1
+  warm_start: null # ckpt/fm_mms_vae/VAE_pdb_MPNN_4_0.01_logits/epoch=19_start.ckpt # inpainting_multimer_v0.1.2_ft/last_244.ckpt  # null
+  warm_start_cfg_override: null # ckpt/fm_mms_vae/joint_pdb_v0.1.2_pairformer_4_0.01_ze_8/last_test.ckpt
+  vae_checkpoint: null # ckpt/fm_mms_vae/joint_pdb_v0.1.2_MPNN_8_0.01_ze_8_nogtb/VAE_MPNN_8_0.01_99.ckpt #ckpt/fm_mms_vae/joint_pdb_v0.2.2.0.1_MPNN_4_0.0.1_noz/VAE_last_100.ckpt
+  joint_checkpoint: null #ckpt/fm_mms_vae/joint_pdb_v0.2.2.0.1_MPNN_4_0.0.1_noz/start.ckpt #ckpt/fm_mms_vae/joint_pdb_v0.2.0.1_MPNN_4_0.0.1/joint_last_150.ckpt
+  training:
+    valid_designability: False
+    beta_max: 0.01 #0.01
+    total_annealing_epochs: 30
+    warmup_epochs: 20
+    vae_loss_weight: 8
+    mask_plddt: True
+    bb_atom_scale: 0.1
+    trans_scale: 0.1
+    translation_loss_weight: 2.0
+    t_normalize_clip: 0.9
+    rotation_loss_weights: 1.0
+    aux_loss_weight: 1.0
+    aux_loss_use_bb_loss: True
+    aux_loss_use_pair_loss: True
+    aux_loss_t_pass: 0.5
+    motif_condition_loss_weight : 1
+  wandb:
+    name: ${experiment.objective}_${data.dataset}_pairformer_8_0.01
+    project: fm_mms_vae
+  optimizer:
+    lr: 0.0001
+  latent_diffusion_optimizer:
+    lr: 0.0001
+    betas: [0.9, 0.999]
+    weight_decay: 0
+  trainer:
+    overfit_batches: 0
+    min_epochs: 1 # prevents early stopping
+    max_epochs: 100
+    accelerator: gpu
+    log_every_n_steps: 1
+    deterministic: False
+    # strategy: ddp_find_unused_parameters_true
+    strategy: ddp
+    check_val_every_n_epoch: 4
+    accumulate_grad_batches: 2
+  checkpointer:
+    dirpath: ckpt/${experiment.wandb.project}/${experiment.wandb.name}
+    save_last: True
+    save_top_k: 3
+    # monitor: valid/non_coil_percent
+    # mode: max
+    # in vae training
+    monitor: valid/total_loss
+    mode: min
+    # initial_epoch: 0
+  # Keep this null. Will be populated at runtime.
+  inference_dir: null
+  lawa:
+    use_lawa: false
+    lawa_start_epoch: 10
+    lawa_k: 6
+    lawa_use_ema: false
+    lawa_decay_rate: 0.9
