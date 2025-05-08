@@ -7,10 +7,10 @@ from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-from motifflow.data.datasets import ScopeDataset, PdbDataset, AFDBDataset
+from motifflow.data.datasets import SCOPeDataset, PDBDataset, AFDBDataset, CATHDataset
 from motifflow.data.protein_dataloader import ProteinDataModule
 from motifflow.models.latent.vae_module import ProteinVAEModule
-# from motifflow.models.latent.latent_diffusion import ProteinLatentDiffusionModule
+from motifflow.models.latent.latent_diffusion_module import ProteinLatentDiffusionModule
 from motifflow.models.structure.flow_module import FlowModule
 from motifflow.experiments import utils as eu
 from motifflow.models.structure.lawa import LAWACallback
@@ -18,56 +18,68 @@ from motifflow.models.structure.lawa import LAWACallback
 log = eu.get_pylogger(__name__)
 torch.set_float32_matmul_precision('high')
 
-class Experiment:
-    
-    def __init__(self, cfg: DictConfig):
 
+class Experiment:
+    def __init__(self, cfg: DictConfig):
         self._cfg = cfg
-        self._setup_dataset()
+        self._setup_datamodule()
+        self._setup_model()
+        self._train_device_ids = eu.get_available_device(self._cfg.experiment.num_devices)
+        log.info(f"Training with devices: {self._train_device_ids}")
+
+    def _setup_datamodule(self):
+        if self._cfg.data.dataset == 'SCOPe':
+            dataset_class = SCOPeDataset
+        elif self._cfg.data.dataset == 'PDB':
+            dataset_class = PDBDataset
+        elif self._cfg.data.dataset == 'AFDB':
+            dataset_class = AFDBDataset
+        elif self._cfg.data.dataset == 'CATH':
+            dataset_class = CATHDataset
+        dataset_cfg = getattr(self._cfg, f"{self._cfg.data.dataset}_dataset")
+        self.train_dataset, self.valid_dataset = eu.dataset_creation(dataset_class, dataset_cfg, self._cfg.data.task)
 
         self._datamodule: LightningDataModule = ProteinDataModule(
             data_cfg=self._cfg.data,
             train_dataset=self.train_dataset,
             valid_dataset=self.valid_dataset
         )
+    
+    def _setup_model(self):
+        total_devices = self._cfg.experiment.num_devices
+        device_ids = eu.get_available_device(total_devices)
+        self._train_device_ids = device_ids
+        log.info(f"Training with devices: {self._train_device_ids}")
         if self._cfg.experiment.objective == 'VAE':
             self._module: LightningModule = ProteinVAEModule(self._cfg)
         elif self._cfg.experiment.objective == 'joint':
-            total_devices = self._cfg.experiment.num_devices
-            device_ids = eu.get_available_device(total_devices)
-            self._train_device_ids = device_ids
-            log.info(f"Training with devices: {self._train_device_ids}")
             self._module: LightningModule = FlowModule(
                 self._cfg,
                 folding_cfg=self._cfg.folding,
                 folding_device_id=self._train_device_ids[0]
                 )
-        # elif self._cfg.experiment.objective == 'latent_diffusion':
-            # self._module: LightningModule = ProteinLatentDiffusionModule(self._cfg)
-        # elif self._cfg.experiment.objective == 'SDM':
-        #     self._module: LightningModule = SDMModule(self._cfg)
+        elif self._cfg.experiment.objective == 'LDM':
+            self._module: LightningModule = ProteinLatentDiffusionModule(
+                self._cfg,
+                folding_cfg=self._cfg.folding,
+                folding_device_id=self._train_device_ids[0]
+            )
         else:
             raise ValueError(f"Unknown training objective: {self._cfg.experiment.objective}")
-        
-        self._train_device_ids = eu.get_available_device(self._cfg.experiment.num_devices)
-        log.info(f"Training with devices: {self._train_device_ids}")
+        log.info(f"Training with objective: {self._cfg.experiment.objective}")
 
+    def _create_checkpointer(self):
+        checkpointer = {**self._cfg.experiment.checkpointer}
+        if self._cfg.experiment.objective == 'VAE':
+            checkpointer.update({'monitor': 'valid/total_loss', 'mode': 'min'})
+        elif self._cfg.experiment.objective == 'joint':
+            checkpointer.update({'monitor': 'valid/non_coil_percent', 'mode': 'max'})
+        elif self._cfg.experiment.objective == 'LDM':
+            checkpointer.update({'monitor': 'valid/latent_mean_norm', 'mode': 'min'})
+        return checkpointer
 
-    def _setup_dataset(self):
-        if self._cfg.data.dataset == 'scope':
-            dataset_class = ScopeDataset
-        elif self._cfg.data.dataset == 'pdb':
-            dataset_class = PdbDataset
-        elif self._cfg.data.dataset == 'AFDB':
-            dataset_class = AFDBDataset
-        # Get configuration for the selected dataset
-        dataset_cfg = getattr(self._cfg, f"{self._cfg.data.dataset}_dataset")
-        # Create training and validation datasets
-        self.train_dataset, self.valid_dataset = eu.dataset_creation(dataset_class, dataset_cfg, self._cfg.data.task)
-
-
+    
     def train(self):
-
         callbacks = []
         if self._cfg.experiment.debug:
             log.info("Debug mode.")
@@ -76,10 +88,11 @@ class Experiment:
             self._cfg.data.loader.num_workers = 0
         else:
             logger = WandbLogger(**self._cfg.experiment.wandb)
-            ckpt_dir = self._cfg.experiment.checkpointer.dirpath
-            os.makedirs(ckpt_dir, exist_ok=True)
-            log.info(f"Checkpoints saved to {ckpt_dir}")
-            callbacks.append(ModelCheckpoint(**self._cfg.experiment.checkpointer))
+            checkpointer = self._create_checkpointer()
+            checkpoint_dir = self._cfg.experiment.checkpointer.dirpath
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            log.info(f"Checkpoints saved to {checkpoint_dir}")
+            callbacks.append(ModelCheckpoint(**checkpointer))
 
             if self._cfg.experiment.lawa.use_lawa:
                 lawa_callback = LAWACallback(
@@ -94,7 +107,7 @@ class Experiment:
                     
             local_rank = os.environ.get('LOCAL_RANK', 0)
             if local_rank == 0:
-                cfg_path = os.path.join(ckpt_dir, 'config.yaml')
+                cfg_path = os.path.join(checkpoint_dir, 'config.yaml')
                 with open(cfg_path, 'w') as f:
                     OmegaConf.save(config=self._cfg, f=f.name)
                 cfg_dict = OmegaConf.to_container(self._cfg, resolve=True)
@@ -112,21 +125,21 @@ class Experiment:
             devices=self._train_device_ids,
         )
 
+        ckpt_path = self._cfg.experiment.load_ckpt if self._cfg.experiment.continous_training else None
+        
         trainer.fit(
             model=self._module,
             datamodule=self._datamodule,
-            ckpt_path=self._cfg.experiment.warm_start
+            ckpt_path=ckpt_path
         )
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="base.yaml")
 def main(cfg: DictConfig):
     
-    if cfg.experiment.warm_start and cfg.experiment.warm_start_cfg_override:
-        # load warm start
-        warm_start_cfg_path = os.path.join(os.path.dirname(cfg.experiment.warm_start), 'config.yaml')
+    if cfg.experiment.load_ckpt and cfg.experiment.use_ckpt_model_cfg and cfg.experiment.continous_training:
+        warm_start_cfg_path = os.path.join(os.path.dirname(cfg.experiment.load_ckpt), 'config.yaml')
         warm_start_cfg = OmegaConf.load(warm_start_cfg_path)
-        # Unpack and merge model configurations
         model_configs = ['vae_model', 'latent_diffusion', 'structure_model']
         for model_config in model_configs:
             OmegaConf.set_struct(cfg[model_config], False)

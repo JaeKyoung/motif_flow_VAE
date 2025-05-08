@@ -34,7 +34,6 @@ class ProteinVAEModule(BaseModule):
 
 
     def training_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> torch.Tensor:
-        # Forward pass
         z_all, mean_all, logvar_all = self.encoder(
             batch['trans_1'], batch['rotmats_1'], batch['aatype'],
             batch['residue_mask'], batch['residue_mask'],
@@ -69,10 +68,6 @@ class ProteinVAEModule(BaseModule):
             params=list(self.encoder.parameters()) + list(self.decoder.parameters()),
             **self._exp_cfg.optimizer
         )
-        # 필요시 학습률 스케줄러 추가
-        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
-        # return {"optimizer": optimizer, "lr_scheduler": {"scheduler": scheduler, "monitor": "val/loss"}}
-        
         return optimizer
 
     @torch.no_grad()

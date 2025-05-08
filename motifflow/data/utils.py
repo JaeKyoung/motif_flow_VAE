@@ -15,6 +15,7 @@ from Bio import PDB
 import io
 
 Rigid = ru.Rigid
+Rotation = ru.Rotation
 Protein = protein.Protein
 
 # Global map from chain characters to integers.
@@ -55,6 +56,12 @@ def create_rigid(rots, trans):
     """Create a rigid body transformation from rotation and translation."""
     rots = ru.Rotation(rot_mats=rots)
     return Rigid(rots=rots, trans=trans)
+
+def rigid_to_device(rigid: Rigid, device: torch.device | str) -> Rigid:
+    return create_rigid(
+        rigid.get_rots().get_rot_mats().to(device=device),
+        rigid.get_trans().to(device=device),
+    )
 
 
 def batch_align_structures(pos_1, pos_2, mask=None):

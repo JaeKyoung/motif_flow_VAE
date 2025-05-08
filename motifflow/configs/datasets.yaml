@@ -15,7 +15,7 @@ shared:
   non_chain_distance_threshold: 30
 
 
-scope_dataset:
+SCOPe_dataset:
   seed: ${shared.seed}
   csv_path: ./metadata/scope_metadata.csv
   max_cache_size: ${shared.max_cache_size}
@@ -40,7 +40,7 @@ scope_dataset:
   max_motif_percent: ${shared.max_motif_percent} 
   motif_max_n_seg : ${shared.motif_max_n_seg}
 
-pdb_dataset:
+PDB_dataset:
   seed: ${shared.seed}
   csv_path: ./metadata/pdb_metadata.csv
   cluster_path: ./metadata/pdb.clusters
@@ -97,7 +97,7 @@ AFDB_dataset:
   max_motif_percent: ${shared.max_motif_percent} 
   motif_max_n_seg : ${shared.motif_max_n_seg}
 
-cath_dataset:
+CATH_dataset:
   seed: ${shared.seed}
   csv_path: ./metadata/cath_metadata.csv
   domain_list_path: ./metadata/cath-domain-list.txt

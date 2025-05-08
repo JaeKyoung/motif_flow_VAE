@@ -94,6 +94,27 @@ def calculate_kl_beta_cyclical(current_epoch, cycle_epoch_length, beta_max=1.0, 
         beta = beta_max * (step_in_cycle / cycle_epoch_length)
         beta = min(beta, beta_max)
         return beta
+    
+def get_positional_embedding(indices, embed_size, max_len=2056):
+    """
+    Create sine/cosine positional embeddings from prespecified indices.
+
+    Args:
+        indices: Offsets of size [..., N_edges] of type integer
+        embed_size: Dimension of the embeddings to create
+        max_len: Maximum length for the embedding calculation
+
+    Returns:
+        Positional embedding of shape [N, embed_size]
+    """
+    K = torch.arange(embed_size//2, device=indices.device)
+    pos_embedding_sin = torch.sin(
+        indices[..., None] * math.pi / (max_len**(2*K[None]/embed_size))).to(indices.device)
+    pos_embedding_cos = torch.cos(
+        indices[..., None] * math.pi / (max_len**(2*K[None]/embed_size))).to(indices.device)
+    pos_embedding = torch.cat([
+        pos_embedding_sin, pos_embedding_cos], axis=-1)
+    return pos_embedding
 
 #################################################
 # From LigandMPNN

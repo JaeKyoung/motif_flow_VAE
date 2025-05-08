@@ -6,7 +6,7 @@
 import numpy as np
 import torch as th
 
-from motifflow.models.latent.diffusion.gaussian_diffusion import GaussianDiffusion
+from motifflow.modules.diffusion.gaussian_diffusion import GaussianDiffusion
 
 
 def space_timesteps(num_timesteps, section_counts):

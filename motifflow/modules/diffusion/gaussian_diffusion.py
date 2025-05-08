@@ -10,7 +10,7 @@ import numpy as np
 import torch as th
 import enum
 
-from motifflow.models.latent.diffusion.diffusion_utils import discretized_gaussian_log_likelihood, normal_kl
+from motifflow.modules.diffusion.diffusion_utils import discretized_gaussian_log_likelihood, normal_kl
 
 
 def mean_flat(tensor):

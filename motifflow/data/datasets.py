@@ -355,7 +355,7 @@ class BaseDataset(Dataset):
         return feats
 
 
-class ScopeDataset(BaseDataset):
+class SCOPeDataset(BaseDataset):
     def _filter_metadata(self, raw_csv):
         # Filter metadata for SCOPE dataset
         filter_cfg = self.dataset_cfg.filter
@@ -364,7 +364,7 @@ class ScopeDataset(BaseDataset):
         return data_csv
 
 
-class PdbDataset(BaseDataset):
+class PDBDataset(BaseDataset):
     def __init__(self, *, dataset_cfg, is_training, task,):
 
         self._log = logging.getLogger(__name__)

@@ -1,5 +1,5 @@
 vae_model:
-  latent_dim: 8 # 4 or 8
+  latent_dim: 4 # 4 or 8
   hidden_dim: 128
   encoder:
     type: Transformer # Transformer, MPNN
@@ -27,13 +27,13 @@ vae_model:
     hidden_dim: ${vae_model.hidden_dim}
 
 latent_diffusion:
-  num_timesteps: 1000
+  num_timesteps: 100
   latent_dim: ${vae_model.latent_dim}
-  hidden_size: 384
-  depth: 24
-  num_heads: 16
+  hidden_size: 256 # 512
+  depth: 16 # 24
+  num_heads: 8 # 16
   mlp_ratio: 4.0
   dropout: 0.1
   residual_dropout: 0.1
   learn_sigma: false
-  use_structure_loss: false # if false, only train latent diffusion model, otherwise End-to-End training
+  ema_decay: 0.9999

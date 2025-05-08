@@ -3,8 +3,8 @@
 #     ADM:   https://github.com/openai/guided-diffusion/blob/main/guided_diffusion
 #     IDDPM: https://github.com/openai/improved-diffusion/blob/main/improved_diffusion/gaussian_diffusion.py
 
-from motifflow.models.latent.diffusion import gaussian_diffusion as gd
-from motifflow.models.latent.diffusion.respace import SpacedDiffusion, space_timesteps
+from motifflow.modules.diffusion import gaussian_diffusion as gd
+from motifflow.modules.diffusion.respace import SpacedDiffusion, space_timesteps
 
 
 def create_diffusion(

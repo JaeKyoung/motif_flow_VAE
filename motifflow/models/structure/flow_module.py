@@ -33,16 +33,16 @@ class FlowModule(BaseModule):
         super().__init__(cfg)
         
         # Set up VAE
-        if self._exp_cfg.vae_checkpoint:  # config에 vae checkpoint path 추가 필요
-            # Load VAE weights from checkpoint
-            vae_state_dict = torch.load(self._exp_cfg.vae_checkpoint)['state_dict']
-            encoder_state_dict = {k.replace('encoder.', ''): v for k, v in vae_state_dict.items()
+        if self._exp_cfg.load_ckpt:
+            # Load weights from checkpoint
+            state_dict = torch.load(self._exp_cfg.load_ckpt)['state_dict']
+            encoder_state_dict = {k.replace('encoder.', ''): v for k, v in state_dict.items()
                     if k.startswith('encoder.')}
-            decoder_state_dict = {k.replace('decoder.', ''): v for k, v in vae_state_dict.items()
+            decoder_state_dict = {k.replace('decoder.', ''): v for k, v in state_dict.items()
                     if k.startswith('decoder.')}
             self.encoder.load_state_dict(encoder_state_dict)
             self.decoder.load_state_dict(decoder_state_dict)
-            self._print_logger.info(f"Loaded encoder and decoder weights from {self._exp_cfg.vae_checkpoint}")
+            self._print_logger.info(f"Loaded encoder and decoder weights from {self._exp_cfg.load_ckpt}")
         else:
             self._print_logger.info("No VAE checkpoint provided")
             

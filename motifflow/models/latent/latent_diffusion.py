@@ -76,7 +76,7 @@ class ProteinLatentDiTBlock(nn.Module):
         super().__init__()
         self.norm1 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
         self.attn = Attention(hidden_size, num_heads, qkv_bias=True,
-                              attn_dropout=dropout, proj_dropout=dropout, **block_kwargs)
+                              attn_drop=dropout, proj_drop=dropout, **block_kwargs)
         self.norm2 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
         mlp_hidden_dim = int(hidden_size * mlp_ratio)
         approx_gelu = lambda: nn.GELU(approximate="tanh")
@@ -89,8 +89,9 @@ class ProteinLatentDiTBlock(nn.Module):
 
     def forward(self, z_emb, cond):
         # Conditioning (B, hidden_size)
-        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = \
-            self.adaLN_modulation(cond).chunk(6, dim=1)
+        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = self.adaLN_modulation(cond).chunk(6, dim=-1)
+        shift_msa, scale_msa, gate_msa = shift_msa.squeeze(1), scale_msa.squeeze(1), gate_msa.squeeze(1)
+        shift_mlp, scale_mlp, gate_mlp = shift_mlp.squeeze(1), scale_mlp.squeeze(1), gate_mlp.squeeze(1)
         # self-attention
         z_emb = z_emb + gate_msa.unsqueeze(1) * self.residual_dropout(self.attn(modulate(self.norm1(z_emb), shift_msa, scale_msa)))
         # MLP
@@ -105,14 +106,15 @@ class FinalLayer(nn.Module):
     def __init__(self, hidden_size, final_dim):
         super().__init__()
         self.norm_final = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
-        self.linear = nn.Linear(hidden_size, final_dim, bias=True)
         self.adaLN_modulation = nn.Sequential(
             nn.SiLU(),
-            nn.Linear(hidden_size, 2 * final_dim, bias=True),
+            nn.Linear(hidden_size, 2 * hidden_size, bias=True),
         )
+        self.linear = nn.Linear(hidden_size, final_dim, bias=True)
 
     def forward(self, z_emb, cond):
-        shift, scale = self.adaLN_modulation(cond).chunk(2, dim=1)
+        shift, scale = self.adaLN_modulation(cond).chunk(2, dim=-1)
+        shift, scale = shift.squeeze(1), scale.squeeze(1)
         z_emb = modulate(self.norm_final(z_emb), shift, scale)
         z_emb = self.linear(z_emb)
         return z_emb
@@ -221,7 +223,7 @@ class ProteinLatentDiT(nn.Module):
         
         # Apply blocks
         for block in self.blocks:
-            z_emb = torch.utils.checkpoint.checkpoint(self.ckpt_wrapper(block), z_emb, cond)
+            z_emb = torch.utils.checkpoint.checkpoint(self.ckpt_wrapper(block), z_emb, cond, use_reentrant=False)
         
         # Final projection to latent space
         # If learn_sigma is True, final_layer outputs 2 * latent_dim.
